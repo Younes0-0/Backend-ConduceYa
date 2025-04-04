@@ -1,7 +1,8 @@
 from rest_framework import viewsets, permissions
 from .models import Profesor, HorarioDisponible, ClasePractica
 from .serializers import ProfesorSerializer, HorarioDisponibleSerializer, ClasePracticaSerializer
-from .permissions import EsAdmin, EsProfesor  # Importamos los permisos personalizados
+from .permissions import EsAdmin, EsProfesor
+from citas import serializers  # Importamos los permisos personalizados
 
 class ProfesorViewSet(viewsets.ModelViewSet):
     queryset = Profesor.objects.all()
@@ -10,14 +11,28 @@ class ProfesorViewSet(viewsets.ModelViewSet):
 
 class HorarioDisponibleViewSet(viewsets.ModelViewSet):
     serializer_class = HorarioDisponibleSerializer
-    permission_classes = [EsProfesor | EsAdmin]  # Solo profesores y admins pueden ver horarios
-    queryset = HorarioDisponible.objects.all()  # 🔥 SE AGREGA EL QUERYSET
+    permission_classes = [EsProfesor | EsAdmin]
+    queryset = HorarioDisponible.objects.all()
 
     def get_queryset(self):
         user = self.request.user
-        if hasattr(user, 'profesor'):
-            return HorarioDisponible.objects.filter(profesor=user.profesor)  # Filtra horarios del profesor
-        return HorarioDisponible.objects.none()  # Si no es profesor, no ve nada
+    
+        if user.is_staff:  # 🔥 Si es admin, ve todos los horarios
+            return HorarioDisponible.objects.all()
+        
+        elif hasattr(user, 'profesor'):  # 🔥 Si es profesor, solo ve sus propios horarios
+            return HorarioDisponible.objects.filter(profesor=user.profesor)
+        
+        else:  # 🔥 Si es un usuario normal (alumno), ve todos los horarios disponibles
+            return HorarioDisponible.objects.exclude(id__in=ClasePractica.objects.values_list('horario', flat=True))  # Excluye los ocupados
+
+    def perform_create(self, serializer):
+        """🔥 Asigna el profesor correctamente al crear un horario"""
+        if hasattr(self.request.user, 'profesor'):
+            profesor = self.request.user.profesor  # Obtiene la instancia de Profesor
+            serializer.save(profesor=profesor)  # Asigna el profesor
+        else:
+            raise serializers.ValidationError("Solo los profesores pueden crear horarios.")
 
 class ClasePracticaViewSet(viewsets.ModelViewSet):
     serializer_class = ClasePracticaSerializer

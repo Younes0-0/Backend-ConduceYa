@@ -8,14 +8,18 @@ class ProfesorSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class HorarioDisponibleSerializer(serializers.ModelSerializer):
-    disponible = serializers.SerializerMethodField()
+    profesor = serializers.HiddenField(default=serializers.CurrentUserDefault())  # 🔥 Asigna el profesor automáticamente
 
     class Meta:
         model = HorarioDisponible
-        fields = '__all__'
+        fields = ['id', 'fecha_hora_inicio', 'profesor']  # 🔥 Permitimos solo definir la fecha y hora
 
-    def get_disponible(self, obj):
-        return not ClasePractica.objects.filter(horario=obj).exists()
+    def validate(self, data):
+        """Validar que el usuario que intenta crear el horario es un profesor"""
+        request = self.context.get('request')
+        if not hasattr(request.user, 'profesor'):
+            raise serializers.ValidationError("Solo los profesores pueden definir horarios.")
+        return data
     
     
 class ClasePracticaSerializer(serializers.ModelSerializer):
