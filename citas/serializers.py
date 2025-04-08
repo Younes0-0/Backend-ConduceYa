@@ -23,6 +23,9 @@ class HorarioDisponibleSerializer(serializers.ModelSerializer):
     
     
 class ClasePracticaSerializer(serializers.ModelSerializer):
+    alumno_username = serializers.CharField(source='alumno.username', read_only=True)
+    fecha_hora_inicio = serializers.DateTimeField(source='horario.fecha_hora_inicio', read_only=True)
+
     class Meta:
         model = ClasePractica
-        fields = '__all__'
+        fields = ['id', 'alumno', 'alumno_username', 'horario', 'fecha_hora_inicio']

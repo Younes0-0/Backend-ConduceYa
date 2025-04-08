@@ -13,3 +13,8 @@ class EsProfesor(permissions.BasePermission):
     """Permite acceso solo a profesores para sus propios horarios"""
     def has_permission(self, request, view):
         return hasattr(request.user, 'profesor')  # Verifica si el usuario es un profesor
+
+class EsProfesorDueño(permissions.BasePermission):
+    def has_object_permission(self, request, view, obj):
+        # obj puede ser una ClasePractica, HorarioDisponible, etc.
+        return hasattr(request.user, 'profesor') and obj.profesor == request.user.profesor
