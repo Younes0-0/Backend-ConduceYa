@@ -44,3 +44,17 @@ class ClasePracticaViewSet(viewsets.ModelViewSet):
         if user.is_staff:  # Admin puede ver todas las clases
             return ClasePractica.objects.all()
         return ClasePractica.objects.filter(alumno=user)  # Los alumnos solo ven sus propias reservas
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def current_user(request):
+    user = request.user
+    rol = "admin" if user.is_staff else "profesor" if hasattr(user, "profesor") else "alumno"
+
+    return Response({
+        "username": user.username,
+        "rol": rol
+    })
