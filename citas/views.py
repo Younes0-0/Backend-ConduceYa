@@ -17,18 +17,19 @@ class ProfesorViewSet(viewsets.ModelViewSet):
     permission_classes = [EsAdmin]  # Solo los administradores pueden gestionar profesores
 
 class HorarioDisponibleViewSet(viewsets.ModelViewSet):
-    queryset = HorarioDisponible.objects.all()
+    queryset = HorarioDisponible.objects.select_related('profesor__usuario').all()
     serializer_class = HorarioDisponibleSerializer
     permission_classes = [EsProfesor | IsAdminUser]
 
     def get_queryset(self):
+        qs = super().get_queryset()
         user = self.request.user
         if user.is_staff:
-            return super().get_queryset()
+            return qs
         if hasattr(user, 'profesor'):
-            return super().get_queryset().filter(profesor=user.profesor)
+            return qs.filter(profesor=user.profesor)
         # Alumnos: solo ve horarios libres
-        return super().get_queryset().exclude(
+        return qs.exclude(
             id__in=ClasePractica.objects.values_list('horario', flat=True)
         )
 
