@@ -19,22 +19,20 @@ class ProfesorViewSet(viewsets.ModelViewSet):
 class HorarioDisponibleViewSet(viewsets.ModelViewSet):
     queryset = HorarioDisponible.objects.all()
     serializer_class = HorarioDisponibleSerializer
-    permission_classes = [EsProfesor | EsAdmin]
+    permission_classes = [EsProfesor | IsAdminUser]
 
     def get_queryset(self):
         user = self.request.user
         if user.is_staff:
-            return HorarioDisponible.objects.all()
-        elif hasattr(user, 'profesor'):
-            return HorarioDisponible.objects.filter(profesor=user.profesor)
-        else:
-            # Alumnos: solo ven horarios libres
-            return HorarioDisponible.objects.exclude(
-                id__in=ClasePractica.objects.values_list('horario', flat=True)
-            )
+            return super().get_queryset()
+        if hasattr(user, 'profesor'):
+            return super().get_queryset().filter(profesor=user.profesor)
+        # Alumnos: solo ve horarios libres
+        return super().get_queryset().exclude(
+            id__in=ClasePractica.objects.values_list('horario', flat=True)
+        )
 
     def perform_create(self, serializer):
-        """Asigna el profesor correctamente al crear un horario"""
         if hasattr(self.request.user, 'profesor'):
             serializer.save(profesor=self.request.user.profesor)
         else:
@@ -42,24 +40,36 @@ class HorarioDisponibleViewSet(viewsets.ModelViewSet):
             raise serializers.ValidationError("Solo los profesores pueden crear horarios.")
 
 class ClasePracticaViewSet(viewsets.ModelViewSet):
-    queryset = ClasePractica.objects.all()
+    queryset = ClasePractica.objects.select_related('alumno', 'horario__profesor').all()
     serializer_class = ClasePracticaSerializer
     permission_classes = [IsAuthenticated, EsProfesorDueño | IsAdminUser]
 
     def get_queryset(self):
         user = self.request.user
         if user.is_staff:
-            return ClasePractica.objects.all()
+            return super().get_queryset()
         if hasattr(user, 'profesor'):
-            # Profesores ven clases para sus horarios
-            return ClasePractica.objects.filter(horario__profesor=user.profesor)
-        # Alumnos: solo sus propias clases
-        return ClasePractica.objects.filter(alumno=user)
+            return super().get_queryset().filter(horario__profesor=user.profesor)
+        return super().get_queryset().filter(alumno=user)
 
     def create(self, request, *args, **kwargs):
-        """Deshabilita la creación directa: usar el endpoint /citas/agendar/ para agendar"""
         return Response(
             {'detail': 'Use el endpoint /citas/agendar/ para reservar una clase.'},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED
+        )
+
+    def update(self, request, *args, **kwargs):
+        return Response(
+            {'detail': 'No permitido. Use endpoints específicos para modificar citas.'},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED
+        )
+
+    def partial_update(self, request, *args, **kwargs):
+        return self.update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        return Response(
+            {'detail': 'Use el endpoint /citas/cancelar/<cita_id>/ para cancelar una cita.'},
             status=status.HTTP_405_METHOD_NOT_ALLOWED
         )
 
