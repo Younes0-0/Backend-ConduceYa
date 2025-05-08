@@ -11,4 +11,7 @@ urlpatterns = [
     # 🔥 Rutas para obtener y refrescar tokens JWT
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+
+    # 🔥 Rutas de la API de practicas
+    path('api/practicas/', include('practicas.urls')),
 ]
