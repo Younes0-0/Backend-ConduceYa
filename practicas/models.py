@@ -15,6 +15,57 @@ class Zona(models.Model):
         return self.nombre
 
 
+class Permiso(models.Model):
+    """Tipos de permiso de conducir disponibles"""
+    codigo = models.CharField(max_length=2, unique=True)
+    descripcion = models.CharField(max_length=50)
+    fases = models.ManyToManyField(
+        'Fase', through='PermisoFase', related_name='permisos'
+    )
+
+    class Meta:
+        verbose_name = 'Permiso'
+        verbose_name_plural = 'Permisos'
+
+    def __str__(self):
+        return f"{self.codigo} - {self.descripcion}"
+
+
+class Fase(models.Model):
+    """Etapas de examen: Teórico, Destreza, Circulación"""
+    nombre = models.CharField(max_length=20, unique=True)
+    orden = models.PositiveSmallIntegerField(help_text="Orden de la fase dentro del permiso")
+
+    class Meta:
+        ordering = ['orden']
+        verbose_name = 'Fase'
+        verbose_name_plural = 'Fases'
+
+    def __str__(self):
+        return self.nombre
+
+
+class PermisoFase(models.Model):
+    """Relación ordenada entre Permiso y Fase"""
+    permiso = models.ForeignKey(
+        Permiso,
+        on_delete=models.CASCADE,
+        related_name='permisofases',
+        related_query_name='permisofase'
+    )
+    fase = models.ForeignKey(Fase, on_delete=models.CASCADE)
+    orden = models.PositiveSmallIntegerField()
+
+    class Meta:
+        unique_together = [('permiso', 'fase')]
+        ordering = ['orden']
+        verbose_name = 'Permiso - Fase'
+        verbose_name_plural = 'Permisos - Fases'
+
+    def __str__(self):
+        return f"{self.permiso.codigo}: {self.fase.nombre}"
+
+
 class Solicitud(models.Model):
     SESION_CHOICES = [
         ('M', 'Mañana'),
@@ -34,11 +85,24 @@ class Solicitud(models.Model):
     nombre = models.CharField(max_length=100)
     telefono = models.CharField(max_length=20)
     zona = models.ForeignKey(Zona, on_delete=models.PROTECT, related_name='solicitudes')
+    permiso = models.ForeignKey(
+                                Permiso,
+                                on_delete=models.PROTECT,
+                                related_name='solicitudes',
+                                related_query_name='solicitud'
+                                )
     sesion_preferida = models.CharField(max_length=1, choices=SESION_CHOICES)
     fecha_teorico = models.DateField(null=True, blank=True)
     fecha_inscripcion = models.DateTimeField(default=timezone.now)
     notas = models.TextField(blank=True)
     estado = models.CharField(max_length=1, choices=ESTADO_CHOICES, default='S')
+    fase_actual = models.ForeignKey(
+        Fase,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='solicitudes'
+    )
 
     class Meta:
         ordering = ['fecha_inscripcion']
@@ -47,6 +111,33 @@ class Solicitud(models.Model):
 
     def __str__(self):
         return f"{self.nombre} ({self.get_sesion_preferida_display()} - {self.zona})"
+
+    def fases_permitidas(self):
+        return [pf.fase for pf in self.permiso.permisofase_set.all()]
+
+    def puede_avanzar(self, nueva_fase):
+        fases = self.fases_permitidas()
+        if self.fase_actual not in fases:
+            return nueva_fase == fases[0]
+        idx = fases.index(self.fase_actual)
+        return idx + 1 < len(fases) and nueva_fase == fases[idx + 1]
+
+
+class ExamenIntento(models.Model):
+    """Registro de cada intento de examen por fase"""
+    solicitud = models.ForeignKey(Solicitud, on_delete=models.CASCADE, related_name='intentos')
+    fase = models.ForeignKey(Fase, on_delete=models.PROTECT)
+    fecha_intento = models.DateTimeField(auto_now_add=True)
+    aprobado = models.BooleanField()
+
+    class Meta:
+        ordering = ['-fecha_intento']
+        verbose_name = 'Intento de Examen'
+        verbose_name_plural = 'Intentos de Examen'
+
+    def __str__(self):
+        estado = 'Aprobado' if self.aprobado else 'Rechazado'
+        return f"{self.solicitud.nombre} - {self.fase.nombre} ({estado})"
 
 
 class SalidaDisponible(models.Model):
