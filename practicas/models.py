@@ -1,7 +1,7 @@
 from django.db import models
 from django.utils import timezone
-from django.contrib.auth.models import User
-from citas.models import Profesor
+from django.conf import settings
+from usuarios.models import Profesor, Alumno
 
 
 class Zona(models.Model):
@@ -67,6 +67,9 @@ class PermisoFase(models.Model):
 
 
 class Solicitud(models.Model):
+    """
+    Solicitud asociada a un alumno registrado.
+    """
     SESION_CHOICES = [
         ('M', 'Mañana'),
         ('T', 'Tarde'),
@@ -82,15 +85,19 @@ class Solicitud(models.Model):
         ('N', 'No Asistido'),
     ]
 
-    nombre = models.CharField(max_length=100)
-    telefono = models.CharField(max_length=20)
+    alumno = models.ForeignKey(
+        Alumno,
+        on_delete=models.CASCADE,
+        related_name='solicitudes',
+        default=1,   
+    )
     zona = models.ForeignKey(Zona, on_delete=models.PROTECT, related_name='solicitudes')
     permiso = models.ForeignKey(
-                                Permiso,
-                                on_delete=models.PROTECT,
-                                related_name='solicitudes',
-                                related_query_name='solicitud'
-                                )
+        Permiso,
+        on_delete=models.PROTECT,
+        related_name='solicitudes',
+        related_query_name='solicitud'
+    )
     sesion_preferida = models.CharField(max_length=1, choices=SESION_CHOICES)
     fecha_teorico = models.DateField(null=True, blank=True)
     fecha_inscripcion = models.DateTimeField(default=timezone.now)
@@ -110,10 +117,11 @@ class Solicitud(models.Model):
         verbose_name_plural = 'Solicitudes'
 
     def __str__(self):
-        return f"{self.nombre} ({self.get_sesion_preferida_display()} - {self.zona})"
+        nombre = self.alumno.get_full_name() or self.alumno.username
+        return f"{nombre} - {self.get_sesion_preferida_display()} ({self.zona})"
 
     def fases_permitidas(self):
-        return [pf.fase for pf in self.permiso.permisofase_set.all()]
+        return [pf.fase for pf in self.permiso.permisofases.all()]
 
     def puede_avanzar(self, nueva_fase):
         fases = self.fases_permitidas()
@@ -137,7 +145,7 @@ class ExamenIntento(models.Model):
 
     def __str__(self):
         estado = 'Aprobado' if self.aprobado else 'Rechazado'
-        return f"{self.solicitud.nombre} - {self.fase.nombre} ({estado})"
+        return f"{self.solicitud.alumno.username} - {self.fase.nombre} ({estado})"
 
 
 class SalidaDisponible(models.Model):
@@ -168,7 +176,7 @@ class Reserva(models.Model):
     ESTADO_CHOICES = Solicitud.ESTADO_CHOICES
 
     alumno = models.ForeignKey(
-        User,
+        settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name='reservas'
     )

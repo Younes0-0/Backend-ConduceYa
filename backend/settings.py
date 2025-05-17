@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',  
     # Apps propias
     'citas',
+    'usuarios',
     
     # Django Rest Framework
     'rest_framework',
@@ -63,7 +64,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
-
+AUTH_USER_MODEL = 'usuarios.User'
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:4321",
 ]
@@ -161,6 +162,8 @@ REST_FRAMEWORK = {
 
 # Configuración de JWT
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(hours=6),  # Duración del token (1 hora)
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),  # Permite renovar token durante 7 días
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    
 }

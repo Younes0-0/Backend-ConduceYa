@@ -15,5 +15,5 @@ router.register(r'reservas', ReservaViewSet, basename='reserva')
 
 urlpatterns = [
     # Rutas automáticas para la app practicas
-    path('', include(router.urls)),
+    path('practicas', include(router.urls)),
 ]

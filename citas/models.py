@@ -1,22 +1,35 @@
 from django.db import models
-from django.contrib.auth.models import User
+from django.conf import settings
+from usuarios.models import Profesor
 
-class Profesor(models.Model):
-    usuario = models.OneToOneField(User, on_delete=models.CASCADE)
-
-    def __str__(self):
-        return self.usuario.username
 
 class HorarioDisponible(models.Model):
-    profesor = models.ForeignKey(Profesor, on_delete=models.CASCADE, related_name="horarios")
+    profesor = models.ForeignKey(
+        Profesor,
+        on_delete=models.CASCADE,
+        related_name="horarios"
+    )
     fecha_hora_inicio = models.DateTimeField()
 
     class Meta:
-        unique_together = ('profesor', 'fecha_hora_inicio')
+        constraints = [
+            models.UniqueConstraint(
+                fields=['profesor', 'fecha_hora_inicio'],
+                name='unique_horario_por_profesor'
+            )
+        ]
+
 
 class ClasePractica(models.Model):
-    alumno = models.ForeignKey(User, on_delete=models.CASCADE, related_name="clases")
-    horario = models.OneToOneField(HorarioDisponible, on_delete=models.CASCADE)
+    alumno = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="clases"
+    )
+    horario = models.OneToOneField(
+        HorarioDisponible,
+        on_delete=models.CASCADE
+    )
 
     def __str__(self):
         return f"{self.alumno.username} - {self.horario.fecha_hora_inicio}"

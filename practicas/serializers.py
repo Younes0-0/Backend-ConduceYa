@@ -1,7 +1,9 @@
+from django.contrib.auth import get_user_model
 from rest_framework import serializers
-from django.contrib.auth.models import User
 from citas.models import Profesor
 from .models import Zona, Solicitud, SalidaDisponible, Reserva
+
+User = get_user_model()
 
 
 class ZonaSerializer(serializers.ModelSerializer):
@@ -11,9 +13,13 @@ class ZonaSerializer(serializers.ModelSerializer):
 
 
 class SolicitudSerializer(serializers.ModelSerializer):
-    zona = serializers.PrimaryKeyRelatedField(queryset=Zona.objects.all(), write_only=True)
+    zona = serializers.PrimaryKeyRelatedField(
+        queryset=Zona.objects.all(), write_only=True
+    )
     zona_nombre = serializers.ReadOnlyField(source='zona.nombre')
-    estado_display = serializers.CharField(source='get_estado_display', read_only=True)
+    estado_display = serializers.CharField(
+        source='get_estado_display', read_only=True
+    )
 
     class Meta:
         model = Solicitud
@@ -25,9 +31,15 @@ class SolicitudSerializer(serializers.ModelSerializer):
 
 
 class SalidaDisponibleSerializer(serializers.ModelSerializer):
-    profesor = serializers.PrimaryKeyRelatedField(queryset=Profesor.objects.all())
-    zona = serializers.PrimaryKeyRelatedField(queryset=Zona.objects.all())
-    profesor_username = serializers.ReadOnlyField(source='profesor.usuario.username')
+    profesor = serializers.PrimaryKeyRelatedField(
+        queryset=Profesor.objects.all()
+    )
+    zona = serializers.PrimaryKeyRelatedField(
+        queryset=Zona.objects.all()
+    )
+    profesor_username = serializers.ReadOnlyField(
+        source='profesor.usuario.username'
+    )
     cupo_disponible = serializers.SerializerMethodField()
 
     class Meta:
@@ -38,15 +50,28 @@ class SalidaDisponibleSerializer(serializers.ModelSerializer):
         ]
 
     def get_cupo_disponible(self, obj):
-        return max(obj.cupo_maximo - obj.reservas.filter(estado__in=['P','C','I']).count(), 0)
+        return max(
+            obj.cupo_maximo - obj.reservas.filter(
+                estado__in=['P', 'C', 'I']
+            ).count(),
+            0
+        )
 
 
 class ReservaSerializer(serializers.ModelSerializer):
-    alumno = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
+    alumno = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.filter(rol=User.Roles.ALUMNO)
+    )
     alumno_username = serializers.ReadOnlyField(source='alumno.username')
-    salida = serializers.PrimaryKeyRelatedField(queryset=SalidaDisponible.objects.all())
-    salida_detalle = SalidaDisponibleSerializer(source='salida', read_only=True)
-    estado_display = serializers.CharField(source='get_estado_display', read_only=True)
+    salida = serializers.PrimaryKeyRelatedField(
+        queryset=SalidaDisponible.objects.all()
+    )
+    salida_detalle = SalidaDisponibleSerializer(
+        source='salida', read_only=True
+    )
+    estado_display = serializers.CharField(
+        source='get_estado_display', read_only=True
+    )
 
     class Meta:
         model = Reserva
@@ -58,12 +83,16 @@ class ReservaSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         salida = data.get('salida')
-        if Reserva.objects.filter(salida=salida, estado__in=['P','C','I']).count() >= salida.cupo_maximo:
-            raise serializers.ValidationError("No quedan plazas disponibles en esta salida.")
+        if Reserva.objects.filter(
+            salida=salida, estado__in=['P', 'C', 'I']
+        ).count() >= salida.cupo_maximo:
+            raise serializers.ValidationError(
+                "No quedan plazas disponibles en esta salida."
+            )
         return data
 
     def create(self, validated_data):
-        request = self.context.get('request', None)
-        if request and hasattr(request.user, 'id'):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
             validated_data['alumno'] = request.user
         return super().create(validated_data)
