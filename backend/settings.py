@@ -9,7 +9,8 @@ https://docs.djangoproject.com/en/5.1/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
-
+import os
+import dj_database_url
 from datetime import timedelta
 from pathlib import Path
 
@@ -21,13 +22,17 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-!!4yws*i7j0-m4pu)zzrt=m!51cujb3uv85o@)=^5ittf3#u_u'
+SECRET_KEY = os.environ.get('SECRET_KEY', default='your secret key')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = 'RENDER' not in os.environ
 
 ALLOWED_HOSTS = []
 
+RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
+if RENDER_EXTERNAL_HOSTNAME:
+    # Agrega el hostname externo de RENDER a los hosts permitidos
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 
 # Application definition
 
@@ -39,30 +44,32 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     # Permite solicitudes CORS desde el frontend
-    'corsheaders',  
+    'corsheaders',
     # Para autenticación JWT
-    'rest_framework_simplejwt',  
+    'rest_framework_simplejwt',
     # Apps propias
     'citas',
     'usuarios',
-    
+
     # Django Rest Framework
     'rest_framework',
 
-     # ... tus otras apps ...
+    # ... tus otras apps ...
     'practicas.apps.PracticasConfig',
 ]
 
 MIDDLEWARE = [
     # Middleware para CORS
     'corsheaders.middleware.CorsMiddleware',
-    'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # Middleware para servir archivos estáticos
+    'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
 ]
 AUTH_USER_MODEL = 'usuarios.User'
 CORS_ALLOWED_ORIGINS = [
@@ -95,13 +102,13 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': dj_database_url.config(
+        default='sqlite:///db.sqlite3',
+        # Configuración para usar PostgreSQL en producción
+        conn_max_age=600,
+    )
+
 }
-
-
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
 
@@ -137,6 +144,12 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 STATIC_URL = 'static/'
+if not DEBUG:
+    # Configuración para servir archivos estáticos en producción
+    STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+    # Configuración de WhiteNoise para servir archivos estáticos
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
@@ -149,10 +162,12 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Esto hace que todos los endpoints requieran autenticación.
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',  # 🔥 Usar JWT en lugar de sesión
+        # 🔥 Usar JWT en lugar de sesión
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated',  # Solo usuarios autenticados pueden acceder a la API
+        # Solo usuarios autenticados pueden acceder a la API
+        'rest_framework.permissions.IsAuthenticated',
     ],
     # ———————— Paginación ————————
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
@@ -165,5 +180,5 @@ SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
     'AUTH_HEADER_TYPES': ('Bearer',),
-    
+
 }
