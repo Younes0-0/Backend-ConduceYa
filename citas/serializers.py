@@ -11,13 +11,15 @@ class ProfesorSerializer(serializers.ModelSerializer):
 class HorarioDisponibleSerializer(serializers.ModelSerializer):
     class Meta:
         model = HorarioDisponible
-        fields = ['id', 'fecha_hora_inicio']  # El profesor se asigna en create()
+        # El profesor se asigna en create()
+        fields = ['id', 'fecha_hora_inicio']
 
     def validate(self, data):
         """Validar que el usuario que intenta crear el horario es un profesor"""
         request = self.context.get('request')
         if not request or not hasattr(request.user, 'profesor'):
-            raise serializers.ValidationError("Solo los profesores pueden definir horarios.")
+            raise serializers.ValidationError(
+                "Solo los profesores pueden definir horarios.")
         return data
 
     def create(self, validated_data):
@@ -28,9 +30,12 @@ class HorarioDisponibleSerializer(serializers.ModelSerializer):
 
 
 class ClasePracticaSerializer(serializers.ModelSerializer):
-    alumno_username = serializers.CharField(source='alumno.username', read_only=True)
-    fecha_hora_inicio = serializers.DateTimeField(source='horario.fecha_hora_inicio', read_only=True)
+    alumno_username = serializers.CharField(
+        source='alumno.username', read_only=True)
+    fecha_hora_inicio = serializers.DateTimeField(
+        source='horario.fecha_hora_inicio', read_only=True)
 
     class Meta:
         model = ClasePractica
-        fields = ['id', 'alumno', 'alumno_username', 'horario', 'fecha_hora_inicio']
+        fields = ['id', 'alumno', 'alumno_username',
+                  'horario', 'fecha_hora_inicio']

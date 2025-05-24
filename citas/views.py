@@ -11,13 +11,17 @@ from .permissions import EsAdmin, EsProfesor, EsProfesorDueño
 
 User = get_user_model()
 
+
 class ProfesorViewSet(viewsets.ModelViewSet):
     queryset = Profesor.objects.all()
     serializer_class = ProfesorSerializer
-    permission_classes = [EsAdmin]  # Solo los administradores pueden gestionar profesores
+    # Solo los administradores pueden gestionar profesores
+    permission_classes = [EsAdmin]
+
 
 class HorarioDisponibleViewSet(viewsets.ModelViewSet):
-    queryset = HorarioDisponible.objects.select_related('profesor__usuario').all()
+    queryset = HorarioDisponible.objects.select_related(
+        'profesor__usuario').all()
     serializer_class = HorarioDisponibleSerializer
     permission_classes = [EsProfesor | IsAdminUser]
 
@@ -38,10 +42,13 @@ class HorarioDisponibleViewSet(viewsets.ModelViewSet):
             serializer.save(profesor=self.request.user.profesor)
         else:
             from rest_framework import serializers
-            raise serializers.ValidationError("Solo los profesores pueden crear horarios.")
+            raise serializers.ValidationError(
+                "Solo los profesores pueden crear horarios.")
+
 
 class ClasePracticaViewSet(viewsets.ModelViewSet):
-    queryset = ClasePractica.objects.select_related('alumno', 'horario__profesor').all()
+    queryset = ClasePractica.objects.select_related(
+        'alumno', 'horario__profesor').all()
     serializer_class = ClasePracticaSerializer
     permission_classes = [IsAuthenticated, EsProfesorDueño | IsAdminUser]
 
@@ -74,6 +81,7 @@ class ClasePracticaViewSet(viewsets.ModelViewSet):
             status=status.HTTP_405_METHOD_NOT_ALLOWED
         )
 
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def current_user(request):
@@ -84,6 +92,7 @@ def current_user(request):
         "alumno"
     )
     return Response({"username": user.username, "rol": rol})
+
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -100,6 +109,7 @@ def agendar_cita(request):
     serializer = ClasePracticaSerializer(clase)
     return Response(serializer.data, status=status.HTTP_201_CREATED)
 
+
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
 def cancelar_cita(request, cita_id):
@@ -110,6 +120,7 @@ def cancelar_cita(request, cita_id):
     cita.delete()
     return Response(status=status.HTTP_204_NO_CONTENT)
 
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def ver_disponibilidad(request):
@@ -119,18 +130,23 @@ def ver_disponibilidad(request):
     serializer = HorarioDisponibleSerializer(horarios_disponibles, many=True)
     return Response(serializer.data)
 
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def ver_citas(request):
     user = request.user
     if user.is_staff:
-        citas = ClasePractica.objects.select_related('alumno', 'horario__profesor').all()
+        citas = ClasePractica.objects.select_related(
+            'alumno', 'horario__profesor').all()
     elif hasattr(user, 'profesor'):
-        citas = ClasePractica.objects.select_related('alumno', 'horario').filter(horario__profesor=user.profesor)
+        citas = ClasePractica.objects.select_related(
+            'alumno', 'horario').filter(horario__profesor=user.profesor)
     else:
-        citas = ClasePractica.objects.select_related('horario__profesor').filter(alumno=user)
+        citas = ClasePractica.objects.select_related(
+            'horario__profesor').filter(alumno=user)
     serializer = ClasePracticaSerializer(citas, many=True)
     return Response(serializer.data)
+
 
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
@@ -143,5 +159,6 @@ def listar_usuarios(request):
             "profesor" if hasattr(u, "profesor") else
             "alumno"
         )
-        datos.append({"id": u.id, "username": u.username, "email": u.email, "rol": rol})
+        datos.append({"id": u.id, "username": u.username,
+                     "email": u.email, "rol": rol})
     return Response(datos)
