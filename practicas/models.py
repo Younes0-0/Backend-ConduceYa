@@ -34,7 +34,8 @@ class Permiso(models.Model):
 class Fase(models.Model):
     """Etapas de examen: Teórico, Destreza, Circulación"""
     nombre = models.CharField(max_length=20, unique=True)
-    orden = models.PositiveSmallIntegerField(help_text="Orden de la fase dentro del permiso")
+    orden = models.PositiveSmallIntegerField(
+        help_text="Orden de la fase dentro del permiso")
 
     class Meta:
         ordering = ['orden']
@@ -89,9 +90,10 @@ class Solicitud(models.Model):
         Alumno,
         on_delete=models.CASCADE,
         related_name='solicitudes',
-        default=1,   
+        default=1,
     )
-    zona = models.ForeignKey(Zona, on_delete=models.PROTECT, related_name='solicitudes')
+    zona = models.ForeignKey(
+        Zona, on_delete=models.PROTECT, related_name='solicitudes')
     permiso = models.ForeignKey(
         Permiso,
         on_delete=models.PROTECT,
@@ -102,7 +104,8 @@ class Solicitud(models.Model):
     fecha_teorico = models.DateField(null=True, blank=True)
     fecha_inscripcion = models.DateTimeField(default=timezone.now)
     notas = models.TextField(blank=True)
-    estado = models.CharField(max_length=1, choices=ESTADO_CHOICES, default='S')
+    estado = models.CharField(
+        max_length=1, choices=ESTADO_CHOICES, default='S')
     fase_actual = models.ForeignKey(
         Fase,
         on_delete=models.PROTECT,
@@ -117,7 +120,7 @@ class Solicitud(models.Model):
         verbose_name_plural = 'Solicitudes'
 
     def __str__(self):
-        nombre = self.alumno.get_full_name() or self.alumno.username
+        nombre = self.alumno.usuario.get_full_name() or self.alumno.usuario.username
         return f"{nombre} - {self.get_sesion_preferida_display()} ({self.zona})"
 
     def fases_permitidas(self):
@@ -133,7 +136,8 @@ class Solicitud(models.Model):
 
 class ExamenIntento(models.Model):
     """Registro de cada intento de examen por fase"""
-    solicitud = models.ForeignKey(Solicitud, on_delete=models.CASCADE, related_name='intentos')
+    solicitud = models.ForeignKey(
+        Solicitud, on_delete=models.CASCADE, related_name='intentos')
     fase = models.ForeignKey(Fase, on_delete=models.PROTECT)
     fecha_intento = models.DateTimeField(auto_now_add=True)
     aprobado = models.BooleanField()
@@ -156,14 +160,16 @@ class SalidaDisponible(models.Model):
         on_delete=models.CASCADE,
         related_name='salidas'
     )
-    zona = models.ForeignKey(Zona, on_delete=models.PROTECT, related_name='salidas')
+    zona = models.ForeignKey(
+        Zona, on_delete=models.PROTECT, related_name='salidas')
     fecha = models.DateField()
     sesion = models.CharField(max_length=1, choices=SESION_CHOICES)
     cupo_maximo = models.PositiveSmallIntegerField(default=3)
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=['profesor', 'fecha', 'sesion'], name='unique_salida_profesor')
+            models.UniqueConstraint(
+                fields=['profesor', 'fecha', 'sesion'], name='unique_salida_profesor')
         ]
         verbose_name = 'Salida Disponible'
         verbose_name_plural = 'Salidas Disponibles'
@@ -185,7 +191,8 @@ class Reserva(models.Model):
         on_delete=models.CASCADE,
         related_name='reservas'
     )
-    estado = models.CharField(max_length=1, choices=ESTADO_CHOICES, default='S')
+    estado = models.CharField(
+        max_length=1, choices=ESTADO_CHOICES, default='S')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
