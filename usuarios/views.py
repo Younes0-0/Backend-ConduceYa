@@ -31,4 +31,3 @@ class AlumnoViewSet(viewsets.ModelViewSet):
     queryset = Alumno.objects.select_related('usuario').all()
     serializer_class = AlumnoSerializer
     permission_classes = [permissions.IsAdminUser]
-

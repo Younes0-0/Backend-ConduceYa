@@ -19,7 +19,7 @@ router.register(r'clases', ClasePracticaViewSet, basename='clase')
 
 urlpatterns = [
     # Rutas automáticas CRUD
-    path('', include(router.urls)),
+    path('/', include(router.urls)),
 
     # Usuario actual
     path('user/', current_user, name='current_user'),
@@ -27,7 +27,8 @@ urlpatterns = [
     # Gestión de citas
     path('citas/agendar/', agendar_cita, name='citas-agendar'),
     path('citas/', ver_citas, name='citas-ver'),
-    path('citas/cancelar/<int:cita_id>/', cancelar_cita, name='citas-cancelar'),
+    path('citas/cancelar/<int:cita_id>/',
+         cancelar_cita, name='citas-cancelar'),
 
     # Usuarios (solo admin)
     path('usuarios/', listar_usuarios, name='listar-usuarios'),

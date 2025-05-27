@@ -56,6 +56,9 @@ INSTALLED_APPS = [
 
     # ... tus otras apps ...
     'practicas.apps.PracticasConfig',
+
+    # Extensiones de Django (para comandos adicionales, etc.)
+    'django_extensions'
 ]
 
 MIDDLEWARE = [
