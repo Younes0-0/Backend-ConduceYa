@@ -37,21 +37,33 @@ class ProfesorSerializer(serializers.ModelSerializer):
     """
     Serializer para perfil de Profesor.
     """
-    usuario = serializers.PrimaryKeyRelatedField(queryset=User.objects.filter(rol=User.Roles.PROFESOR))
+    # Serializador anidado para leer datos completos de usuario
+    usuario = UserSerializer(read_only=True)
+    # Campo extra para crear profesor usando usuario_id
+    usuario_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.filter(rol=User.Roles.PROFESOR),
+        write_only=True,
+        source='usuario'
+    )
 
     class Meta:
         model = Profesor
-        fields = ['id', 'usuario', 'permisos']
-        read_only_fields = ['id']
+        fields = ['id', 'usuario', 'usuario_id', 'permisos']
+        read_only_fields = ['id', 'usuario']
 
 
 class AlumnoSerializer(serializers.ModelSerializer):
     """
     Serializer para perfil de Alumno.
     """
-    usuario = serializers.PrimaryKeyRelatedField(queryset=User.objects.filter(rol=User.Roles.ALUMNO))
+    usuario = UserSerializer(read_only=True)
+    usuario_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.filter(rol=User.Roles.ALUMNO),
+        write_only=True,
+        source='usuario'
+    )
 
     class Meta:
         model = Alumno
-        fields = ['id', 'usuario']
-        read_only_fields = ['id']
+        fields = ['id', 'usuario', 'usuario_id']
+        read_only_fields = ['id', 'usuario']
