@@ -1,103 +1,179 @@
-from rest_framework import viewsets, permissions, status
+# practicas/views.py
+from django.utils import timezone
+from rest_framework import viewsets, permissions, serializers, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from django.utils import timezone
 
 from .models import Zona, Solicitud, SalidaDisponible, Reserva
 from .serializers import (
-    ZonaSerializer, SolicitudSerializer,
-    SalidaDisponibleSerializer, ReservaSerializer
+    ZonaSerializer,
+    SolicitudSerializer,
+    SalidaDisponibleSerializer,
+    ReservaSerializer,
 )
-from citas.models import Profesor
+from citas.permissions import EsProfesor, EsProfesorDueño  # asegúrate de tenerlos
+# ---------------------------------------------------------------------------
 
 
+# ════════════════════════════════  ZONAS  ════════════════════════════════ #
 class ZonaViewSet(viewsets.ModelViewSet):
-    """CRUD de Zonas (solo admin)"""
+    """
+    CRUD completo de zonas de examen.
+    Solo el personal administrativo o 'staff' puede gestionarlas.
+    """
     queryset = Zona.objects.all()
     serializer_class = ZonaSerializer
     permission_classes = [permissions.IsAdminUser]
 
 
+# ═══════════════════════════════  SOLICITUDES  ═══════════════════════════ #
 class SolicitudViewSet(viewsets.ModelViewSet):
-    """Gestión de solicitudes por zona y sesión"""
-    queryset = Solicitud.objects.all().order_by('fecha_inscripcion')
+    """
+    Gestión de solicitudes de plaza para una zona y fecha concreta.
+    Cualquier usuario autenticado puede crear; listar o modificar
+    requiere rol de administrador.
+    """
+    queryset = Solicitud.objects.all().order_by("fecha_inscripcion")
     serializer_class = SolicitudSerializer
-    permission_classes = [permissions.IsAuthenticated]
 
     def get_permissions(self):
-        # Solo admins y profesores pueden listar o modificar
-        if self.action in ['list', 'retrieve', 'update', 'partial_update', 'destroy']:
+        if self.action in {"list", "retrieve", "update",
+                           "partial_update", "destroy"}:
             return [permissions.IsAdminUser()]
-        # Cualquier usuario autenticado puede crear
         return [permissions.IsAuthenticated()]
 
-    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser])
+    @action(
+        detail=True,
+        methods=["post"],
+        permission_classes=[permissions.IsAdminUser],
+        url_path="invitar",
+    )
     def invitar(self, request, pk=None):
-        """Marcar solicitud como invitada (I) y generar Reserva"""
-        solicitud = self.get_object()
-        solicitud.estado = 'I'
-        solicitud.save()
-        # Crear reserva pendiente a partir de solicitud
-        # Aquí asumiríamos seleccionar una SalidaDisponible de contexto
-        return Response({'status': 'invitado'}, status=status.HTTP_200_OK)
+        """
+        Marca la solicitud como INVITADA y,
+        opcionalmente, crea una reserva pendiente.
+        """
+        solicitud: Solicitud = self.get_object()
+        solicitud.estado = Solicitud.Estados.INVITADA
+        solicitud.save(update_fields=["estado", "updated_at"])
+
+        # ↪️  Hook: aquí podrías generar automáticamente una Reserva pendiente
+        #          asociada a la salida disponible que definas en tu dominio.
+        return Response({"status": "invitada"}, status=status.HTTP_200_OK)
 
 
+# ═══════════════════════════════  SALIDAS  ═══════════════════════════════ #
 class SalidaDisponibleViewSet(viewsets.ModelViewSet):
-    """Gestión de salidas (profesor/admin) y listado para alumnos"""
-    queryset = SalidaDisponible.objects.select_related('profesor', 'zona').all()
+    """
+    Gestión de 'salidas' o turnos de examen práctico.
+    - Profesores: pueden crear/editar las de su agenda.
+    - Staff: gestión completa.
+    - Alumnos: solo listan las que correspondan a su zona.
+    """
+    queryset = (SalidaDisponible.objects
+                .select_related("profesor", "zona"))
     serializer_class = SalidaDisponibleSerializer
-    permission_classes = [permissions.IsAuthenticated]
 
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [permissions.IsAdminUser() | permissions.IsAuthenticated()]
+        if self.action in {"create", "update", "partial_update", "destroy"}:
+            return [permissions.IsAdminUser | EsProfesor]
         return [permissions.IsAuthenticated()]
 
     def get_queryset(self):
-        user = self.request.user
         qs = super().get_queryset().filter(fecha__gte=timezone.now().date())
+        user = self.request.user
+
         if user.is_staff:
             return qs
-        if hasattr(user, 'profesor'):
+        if hasattr(user, "profesor"):
             return qs.filter(profesor=user.profesor)
-        # Alumnos: filtrar por zona de su última solicitud
-        ult_solicitud = Solicitud.objects.filter(telefono=user.username).order_by('-fecha_inscripcion').first()
-        if ult_solicitud:
-            return qs.filter(zona=ult_solicitud.zona)
-        return qs.none()
+
+        # Alumno → filtra por zona de su última solicitud
+        ult_solicitud = (Solicitud.objects
+                         .filter(alumno=user)
+                         .order_by("-fecha_inscripcion")
+                         .first())
+        return qs.filter(zona=ult_solicitud.zona) if ult_solicitud else qs.none()
 
 
+# ═══════════════════════════════  RESERVAS  ══════════════════════════════ #
 class ReservaViewSet(viewsets.ModelViewSet):
-    """Crear reservas, confirmar y rechazar"""
-    queryset = Reserva.objects.select_related('alumno', 'salida').all()
+    """
+    Reserva de un alumno para una 'SalidaDisponible'.
+    Acciones extra:
+      • POST /reservas/{id}/confirmar/
+      • POST /reservas/{id}/rechazar/
+    """
+    queryset = (Reserva.objects
+                .select_related("alumno", "salida", "salida__profesor"))
     serializer_class = ReservaSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    # ---------- Queryset filtrado por rol -------------------------------- #
     def get_queryset(self):
         user = self.request.user
         if user.is_staff:
             return super().get_queryset()
-        if hasattr(user, 'profesor'):
-            # Profesor ve reservas para sus salidas
+        if hasattr(user, "profesor"):
             return super().get_queryset().filter(salida__profesor=user.profesor)
-        # Alumno ve sus reservas
         return super().get_queryset().filter(alumno=user)
 
+    # ---------- Crear ----------------------------------------------------- #
     def perform_create(self, serializer):
-        serializer.save(alumno=self.request.user)
+        salida = serializer.validated_data["salida"]
 
-    @action(detail=True, methods=['post'])
+        # 1) No reservar si ya hay una reserva para esa salida
+        if Reserva.objects.filter(salida=salida).exists():
+            raise serializers.ValidationError(
+                "Esta salida ya tiene una reserva asociada."
+            )
+
+        # 2) Evita que el profesor reserve su propia salida
+        if (hasattr(self.request.user, "profesor")
+                and salida.profesor == self.request.user.profesor):
+            raise serializers.ValidationError(
+                "No puedes reservar tu propia salida."
+            )
+
+        serializer.save(
+            alumno=self.request.user,
+            estado=Reserva.Estados.PENDIENTE,
+        )
+
+    # ---------- Confirmar ------------------------------------------------- #
+    @action(
+        detail=True,
+        methods=["post"],
+        permission_classes=[permissions.IsAdminUser | EsProfesorDueño],
+    )
     def confirmar(self, request, pk=None):
-        reserva = self.get_object()
-        reserva.estado = 'C'
-        reserva.updated_at = timezone.now()
-        reserva.save()
+        reserva: Reserva = self.get_object()
+
+        if reserva.estado != Reserva.Estados.PENDIENTE:
+            return Response(
+                {"error": "La reserva ya fue gestionada."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        reserva.estado = Reserva.Estados.CONFIRMADA
+        reserva.save(update_fields=["estado", "updated_at"])
         return Response(self.get_serializer(reserva).data)
 
-    @action(detail=True, methods=['post'])
+    # ---------- Rechazar -------------------------------------------------- #
+    @action(
+        detail=True,
+        methods=["post"],
+        permission_classes=[permissions.IsAdminUser | EsProfesorDueño],
+    )
     def rechazar(self, request, pk=None):
-        reserva = self.get_object()
-        reserva.estado = 'R'
-        reserva.updated_at = timezone.now()
-        reserva.save()
+        reserva: Reserva = self.get_object()
+
+        if reserva.estado != Reserva.Estados.PENDIENTE:
+            return Response(
+                {"error": "La reserva ya fue gestionada."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        reserva.estado = Reserva.Estados.RECHAZADA
+        reserva.save(update_fields=["estado", "updated_at"])
         return Response(self.get_serializer(reserva).data)

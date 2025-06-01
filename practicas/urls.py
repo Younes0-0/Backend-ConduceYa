@@ -1,4 +1,4 @@
-from django.urls import path, include
+# practicas/urls.py
 from rest_framework.routers import DefaultRouter
 from .views import (
     ZonaViewSet,
@@ -8,12 +8,9 @@ from .views import (
 )
 
 router = DefaultRouter()
-router.register(r'zonas', ZonaViewSet, basename='zona')
-router.register(r'solicitudes', SolicitudViewSet, basename='solicitud')
-router.register(r'salidas', SalidaDisponibleViewSet, basename='salida')
-router.register(r'reservas', ReservaViewSet, basename='reserva')
+router.register("zonas",        ZonaViewSet,        basename="zonas")
+router.register("solicitudes",  SolicitudViewSet,   basename="solicitudes")
+router.register("salidas",      SalidaDisponibleViewSet, basename="salidas")
+router.register("reservas",     ReservaViewSet,     basename="reservas")
 
-urlpatterns = [
-    # Rutas automáticas para la app practicas
-    path('/', include(router.urls)),
-]
+urlpatterns = router.urls     # 👈 sin path extra

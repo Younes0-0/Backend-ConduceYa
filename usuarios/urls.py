@@ -1,12 +1,12 @@
-from django.urls import path, include
+from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 from .views import UserViewSet, ProfesorViewSet, AlumnoViewSet
 
 router = DefaultRouter()
-router.register(r'users', UserViewSet, basename='user')
-router.register(r'profesores', ProfesorViewSet, basename='profesor')
-router.register(r'alumnos', AlumnoViewSet, basename='alumno')
+# 👇  Usa basenames plural-kebab y anotaciones coherentes
+router.register("users",       UserViewSet,      basename="users")
+router.register("profesores",  ProfesorViewSet,  basename="profesores")
+router.register("alumnos",     AlumnoViewSet,    basename="alumnos")
 
-urlpatterns = [
-    path('/', include(router.urls)),
-]
+# 👉  Sin “/” inicial en path y sin lista extra: exportamos el router tal cual
+urlpatterns = router.urls
