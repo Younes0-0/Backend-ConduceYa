@@ -77,7 +77,29 @@ class Alumno(models.Model):
         on_delete=models.CASCADE,
         related_name='perfil_alumno'
     )
+    # -------------------------------------------------------------------
+    # 2️⃣  Campos extra 100 % opcionales (null=True + blank=True)
+    # -------------------------------------------------------------------
+    phone = models.CharField(_('Teléfono'), max_length=20,
+                             blank=True, null=True)
+    address = models.CharField(_('Dirección'), max_length=255,
+                               blank=True, null=True)
+    city = models.CharField(_('Ciudad'), max_length=100,
+                            blank=True, null=True)
+    postal_code = models.CharField(_('Código postal'), max_length=20,
+                                   blank=True, null=True)
+    genero = models.CharField(
+        _('Género'),
+        max_length=1,
+        choices=[('M', _('Masculino')),
+                 ('F', _('Femenino')),
+                 ('O', _('Otro'))],
+        blank=True, null=True,
+    )
 
+    # -------------------------------------------------------------------
+    # 3️⃣  Rol del usuario (no editable por el propio usuario)
+    # -------------------------------------------------------------------
     class Meta:
         verbose_name = _('alumno')
         verbose_name_plural = _('alumnos')
