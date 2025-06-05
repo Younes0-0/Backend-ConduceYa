@@ -16,14 +16,14 @@ class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     # ← por defecto solo admins
-    permission_classes = [permissions.IsAdminUser]
+    # permission_classes = [permissions.IsAdminUser]
 
     # --- Permisos por acción -------------------------------------------- #
     def get_permissions(self):
         # El endpoint "yo" es de solo lectura para el propio usuario
         if self.action == "yo":
             return [permissions.IsAuthenticated()]
-        return super().get_permissions()
+        return [permissions.IsAdminUser()]
 
     # --- Acción “yo” ----------------------------------------------------- #
     @action(detail=False, methods=["get"], url_path="yo")
