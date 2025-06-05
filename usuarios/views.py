@@ -49,7 +49,18 @@ class ProfesorViewSet(viewsets.ModelViewSet):
 
 
 class AlumnoViewSet(viewsets.ModelViewSet):
-    """Perfiles de alumnos – solo administradores."""
+    """
+    Vista para gestionar perfiles de alumnos.
+
+    - POST /api/v1/alumnos/ → cualquier persona puede registrarse.
+    - GET, PUT, DELETE → solo administradores.
+    """
     queryset = Alumno.objects.select_related("usuario")
     serializer_class = AlumnoSerializer
-    permission_classes = [permissions.IsAdminUser]
+
+    def get_permissions(self):
+        if self.action == 'create':
+
+            # ⬅️ cualquier usuario puede registrarse
+            return [permissions.AllowAny()]
+        return [permissions.IsAdminUser()]  # ⬅️ solo admin para lo demás

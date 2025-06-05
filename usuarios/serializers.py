@@ -17,7 +17,6 @@ class UserSerializer(serializers.ModelSerializer):
             "password",
             "first_name",
             "last_name",
-            "rol",
         )
         read_only_fields = ("id",)
 
@@ -95,14 +94,23 @@ class ProfesorSerializer(_ProfileSerializerMixin):
 
 # ═════════════════════════  ALUMNO  ═════════════════════════════ #
 class AlumnoSerializer(_ProfileSerializerMixin):
+    usuario = UserSerializer()
+
     class Meta:
         model = Alumno
         fields = (
             "id",
             "usuario",
-            "usuario_id",
+            "phone",
+            "address",
+            "city",
+            "postal_code",
+            "genero"
         )
-        read_only_fields = ("id", "usuario")
+        read_only_fields = ("id",)
 
     def create(self, validated_data):
-        return self._create_with_role(validated_data, rol=User.Roles.ALUMNO)
+        user_data = validated_data.pop("usuario")
+        user_data["rol"] = User.Roles.ALUMNO
+        user = UserSerializer().create(user_data)
+        return Alumno.objects.create(usuario=user, **validated_data)
